@@ -25,22 +25,12 @@ if (-not(Test-Path -Path $PowerShellObject.Required.localBackupDirectory -PathTy
   throw "local backup path of $($PowerShellObject.Required.localBackupDirectory) does not exist, aborting process"
 }
 
-[string] $strTimeStamp = $(get-date -f yyyy-MM-dd-hh_mm_ss)
-[string] $strDetailLogFilePath = $PowerShellObject.Required.logsDirectory + "\udmpro-backup-detail-" + $strTimeStamp + ".log"
-$objDetailLogFile = [System.IO.StreamWriter] $strDetailLogFilePath
+
 
 #********************************************************************************
 #functions
 #********************************************************************************
-#function to write log file
-Function LogWrite($objLogFile, [string]$strLogstring, [bool]$DisplayInConsole=$true)
-{ 
-  if ($DisplayInConsole -eq $true) {
-    write-host $strLogstring
-  }
-  $objLogFile.writeline($strLogstring)
-  $objLogFile.flush()
-}
+
 
 #set up variables
 [string] $strExecDir = $PSScriptRoot
@@ -55,8 +45,33 @@ Function LogWrite($objLogFile, [string]$strLogstring, [bool]$DisplayInConsole=$t
 
 [bool] $blnSendSMTPErrorReport = $false
 [bool] $blnSMTPAuthRequired = $false
-[bool] $blnUseSSLSMTP = $false
+[bool] $blnBackupSuccessful = $false
+[bool] $blnWriteToLog = $false
 [uint16] $intSMTPPort = 587
+
+if (Test-Path -Path $PowerShellObject.Optional.logsDirectory -PathType Container) {
+  $blnWriteToLog = $true
+}
+
+
+if (Test-Path -Path $PowerShellObject.Optional.logsDirectory -PathType Container) {
+  $blnWriteToLog = $true
+  [string] $strTimeStamp = $(get-date -f yyyy-MM-dd-hh_mm_ss)
+  [string] $strDetailLogFilePath = $PowerShellObject.Optional.logsDirectory + "\udmpro-backup-detail-" + $strTimeStamp + ".log"
+  $objDetailLogFile = [System.IO.StreamWriter] $strDetailLogFilePath
+}
+
+#function to write log file
+Function LogWrite($objLogFile, [string]$strLogstring, [bool]$DisplayInConsole=$true)
+{ 
+  if ($DisplayInConsole -eq $true) {
+    write-host $strLogstring
+  }
+  if ($blnWriteToLog -eq $true) {
+    $objLogFile.writeline($strLogstring)
+    $objLogFile.flush()
+  }
+}
 
 if ($PowerShellObject.Optional.daysToKeepUDMBackups) {
   try {
@@ -117,27 +132,23 @@ if ($PowerShellObject.Optional.udmRemoteBackupDirectory) {
   $strUDMRemoteBackupDirectory = $PowerShellObject.Optional.udmRemoteBackupDirectory
 }
 
-
-
 [int] $intErrorCount = 0
 $arrStrErrors = @()
-
-
 
 #clear all errors before starting
 $error.Clear()
 
-
 LogWrite $objDetailLogFile "$(get-date) Info: Beginning process to backup UDM Pro via scp at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory)"
 
+#perform actual backup of udm device
 try {
 	LogWrite $objDetailLogFile "$(get-date) Info: Building credential"
-	#$objPassword = ConvertTo-SecureString $strUDMProPassword -AsPlainText -Force
   $objPassword = Get-Content $PowerShellObject.Required.udmPasswordFile | ConvertTo-SecureString
 	$objCredential = New-Object System.Management.Automation.PSCredential ($strUDMUsername, $objPassword)
 	LogWrite $objDetailLogFile "$(get-date) Info: Backing up UDM Pro..."
 	Get-SCPItem -AcceptKey -ComputerName $strUDMIPHostname -Credential $objCredential -Path $strUDMRemoteBackupDirectory -PathType Directory -Destination $PowerShellObject.Required.localBackupDirectory -ErrorAction Stop
 	LogWrite $objDetailLogFile "$(get-date) Info: Successfully backed up UDM Pro"
+  $blnBackupSuccessful = $true
 } catch {
 	$ErrorMessage = $_.Exception.Message
 	$line = $_.InvocationInfo.ScriptLineNumber
@@ -145,6 +156,36 @@ try {
 	LogWrite $objDetailLogFile "$(get-date) Error: Failed to connect to UDM Pro at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory) at $($line) with the following error: $ErrorMessage"
 }
 
+
+#backup retention
+if ($blnBackupSuccessful -eq $true -and $intDaysToKeepUDMBackups -gt 0) {
+  try {
+    LogWrite $objDetailLogFile "$(get-date) Info: Purging backups older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup"
+    $CurrentDate = Get-Date
+    $DatetoDelete = $CurrentDate.AddDays("-$($intDaysToKeepUDMBackups)")
+    Get-ChildItem "$($PowerShellObject.Required.localBackupDirectory)\autobackup" | Where-Object { $_.LastWriteTime -lt $DatetoDelete } | Remove-Item
+  } catch {
+    $ErrorMessage = $_.Exception.Message
+	  $line = $_.InvocationInfo.ScriptLineNumber
+	  $arrStrErrors += "Failed to purge backup files older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup with the following error: $ErrorMessage"
+	  LogWrite $objDetailLogFile "$(get-date) Error: Failed to purge backup files older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup with the following error: $ErrorMessage"
+  }
+}
+
+#log retention
+if ($blnBackupSuccessful -eq $true -and $intDaysToKeepLogFiles -gt 0) {
+  try {
+    LogWrite $objDetailLogFile "$(get-date) Info: Purging log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Required.logsDirectory)"
+    $CurrentDate = Get-Date
+    $DatetoDelete = $CurrentDate.AddDays("-$($intDaysToKeepLogFiles)")
+    Get-ChildItem "$($PowerShellObject.Required.logsDirectory)" | Where-Object { $_.LastWriteTime -lt $DatetoDelete } | Remove-Item
+  } catch {
+    $ErrorMessage = $_.Exception.Message
+	  $line = $_.InvocationInfo.ScriptLineNumber
+	  $arrStrErrors += "Failed to purge log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Required.logsDirectory) with the following error: $ErrorMessage"
+	  LogWrite $objDetailLogFile "$(get-date) Error: Failed to purge log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Required.logsDirectory) with the following error: $ErrorMessage"
+  }
+}
 
 [int] $intErrorCount = $arrStrErrors.Count
 
