@@ -3,37 +3,36 @@ param (
   [Parameter (Mandatory = $true)] [String]$ConfigFilePath
 )
 
+#if Posh-SSH module can't be loaded, abort process
+try {
+  import-module -name Posh-SSH
+} catch {
+  throw "Posh-SSH powershell module cannot be imported, aborting process"
+}
+
+#if json config file does not exist, abort process
 if (-not(Test-Path -Path $ConfigFilePath -PathType Leaf)) {
   throw "json config file specified at $($ConfigFilePath) does not exist, aborting process"
 }
 
+#if config file configured is not json format, abort process.
 try {
   $PowerShellObject=Get-Content -Path $ConfigFilePath | ConvertFrom-Json
 } catch {
   throw "Config file of $($ConfigFilePath) is not a valid json file, aborting process"
 }
 
-if (-not(Test-Path -Path $PowerShellObject.Required.logsDirectory -PathType Container)) {
-  throw "log root directory of $($PowerShellObject.Required.logsDirectory) does not exist, aborting process"
-}
-
+#if udm secure password file does not exist, abort process
 if (-not(Test-Path -Path $PowerShellObject.Required.udmPasswordFile -PathType Leaf)) {
   throw "secure udm file $($PowerShellObject.Required.udmPasswordFile) does not exist, aborting process"
 }
 
+#if backup directory specified for local udm backups does not exist, abort process
 if (-not(Test-Path -Path $PowerShellObject.Required.localBackupDirectory -PathType Container)) {
   throw "local backup path of $($PowerShellObject.Required.localBackupDirectory) does not exist, aborting process"
 }
 
-
-
-#********************************************************************************
-#functions
-#********************************************************************************
-
-
 #set up variables
-[string] $strExecDir = $PSScriptRoot
 [string] $strServerName = $env:computername
 
 [uint16] $intDaysToKeepUDMBackups = 0
@@ -49,11 +48,13 @@ if (-not(Test-Path -Path $PowerShellObject.Required.localBackupDirectory -PathTy
 [bool] $blnWriteToLog = $false
 [uint16] $intSMTPPort = 587
 
-if (Test-Path -Path $PowerShellObject.Optional.logsDirectory -PathType Container) {
-  $blnWriteToLog = $true
-}
+[int] $intErrorCount = 0
+$arrStrErrors = @()
 
+#clear all errors before starting
+$error.Clear()
 
+#if path to log directory exists, set logging to true and setup log file
 if (Test-Path -Path $PowerShellObject.Optional.logsDirectory -PathType Container) {
   $blnWriteToLog = $true
   [string] $strTimeStamp = $(get-date -f yyyy-MM-dd-hh_mm_ss)
@@ -73,6 +74,7 @@ Function LogWrite($objLogFile, [string]$strLogstring, [bool]$DisplayInConsole=$t
   }
 }
 
+#if days to keep udm backup files directive exists in config file, set configured days to keep local backups
 if ($PowerShellObject.Optional.daysToKeepUDMBackups) {
   try {
     $intDaysToKeepUDMBackups = $PowerShellObject.Optional.daysToKeepUDMBackups
@@ -82,6 +84,7 @@ if ($PowerShellObject.Optional.daysToKeepUDMBackups) {
   }
 }
 
+#if days to keep log files directive exists in config file, set configured days to keep log files
 if ($PowerShellObject.Optional.daysToKeepLogFiles) {
   try {
     $intDaysToKeepLogFiles = $PowerShellObject.Optional.daysToKeepLogFiles
@@ -91,6 +94,7 @@ if ($PowerShellObject.Optional.daysToKeepLogFiles) {
   }
 }
 
+#if smtp port directive is configured, set port
 if ($PowerShellObject.Optional.smtpport) {
   try {
     $intSMTPPort = $PowerShellObject.Optional.smtpport
@@ -100,43 +104,38 @@ if ($PowerShellObject.Optional.smtpport) {
   }
 }
 
+#if send smtp error directive exists along with smtp server, sender and recipient exist in config file, configure to send email on error
 if ($PowerShellObject.Optional.sendEmailError -and $PowerShellObject.Optional.sendEmailError.toLower().equals("true")) {
   if ($PowerShellObject.Optional.smtpServer -and $PowerShellObject.Optional.emailReportRecipient) {
     $blnSendSMTPErrorReport = $true
-    write-host "we're sending smtp messages"
     LogWrite $objDetailLogFile "$(get-date) Info: Sending email error report via $($PowerShellObject.Optional.smtpServer) to $($PowerShellObject.Optional.emailReportRecipient) as specified in config file"
     if ($PowerShellObject.Optional.smtpauthrequired) {
       if ($PowerShellObject.Optional.smtpauthrequired.toLower().equals("true")) {
         $blnSMTPAuthRequired = $true
-        if ($PowerShellObject.Optional.sendEmailError -AND $PowerShellObject.Optional.sendEmailError -AND (Test-Path -Path $PowerShellObject.Optional.smtpPasswordFile -PathType Leaf)) {
-          write-host "smtp auth required and username and password file exist, so proceeding"
+        if ($PowerShellObject.Optional.smtpUsername -AND (Test-Path -Path $PowerShellObject.Optional.smtpPasswordFile -PathType Leaf)) {
+          LogWrite $objDetailLogFile "$(get-date) Info: Using $($PowerShellObject.Optional.smtpUsername) as smtp username and $($PowerShellObject.Optional.smtpPasswordFile) smtp password file for smtp authentication as specified in config file"
         } else {
-          write-host "smtp auth required but no smtp username or password file, aborting smtp send"
+          LogWrite $objDetailLogFile "$(get-date) Warning: SMTP auth required but no smtp username or password file were specified, aborting smtp send"
         }
       }
     }
-  } else {
-    write-host "we're not sending smtp error messages"
   }
 }
 
+#check for presense of udm username in config file
 if ($PowerShellObject.Optional.udmUsername) {
   $strUDMUsername = $PowerShellObject.Optional.udmUsername
 }
 
+#check for presense of udm IP/Hostname in config file
 if ($PowerShellObject.Optional.udmIPHostname) {
   $strUDMIPHostname = $PowerShellObject.Optional.udmIPHostname
 }
 
+#chek for presense of udm remote backup directory in config file
 if ($PowerShellObject.Optional.udmRemoteBackupDirectory) {
   $strUDMRemoteBackupDirectory = $PowerShellObject.Optional.udmRemoteBackupDirectory
 }
-
-[int] $intErrorCount = 0
-$arrStrErrors = @()
-
-#clear all errors before starting
-$error.Clear()
 
 LogWrite $objDetailLogFile "$(get-date) Info: Beginning process to backup UDM Pro via scp at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory)"
 
@@ -189,15 +188,12 @@ if ($blnBackupSuccessful -eq $true -and $intDaysToKeepLogFiles -gt 0) {
 
 [int] $intErrorCount = $arrStrErrors.Count
 
-#sending email report
+#sending email report if any errors occured
 if ($PowerShellObject.Optional.sendEmailError -and $PowerShellObject.Optional.sendEmailError.toLower().equals("true") -and $intErrorCount -gt 0) {
   #if smtp server, sender and email recipient are populated
   if ($PowerShellObject.Optional.smtpServer -and $PowerShellObject.Optional.smtpUsername -and $PowerShellObject.Optional.emailReportRecipient) {
     $blnSendSMTPErrorReport = $true
-    write-host "here"
-    
     LogWrite $objDetailLogFile "$(get-date) Info: Encountered $intErrorCount errors, sending error report email"
-  
     #loop through all errors and add them to email body
     foreach ($strErrorElement in $arrStrErrors) {
       $intErrorCounter = $intErrorCounter + 1

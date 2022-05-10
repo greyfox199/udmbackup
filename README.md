@@ -3,7 +3,7 @@ this utility is used to backup a udm device to a location off the device itself.
 
 Requirements:  
 -Assumes root level access to the udm device  
--Assumes auto backups have been configured on the udn device itself  
+-Assumes auto backups have been configured on the udm device itself  
 -Assumes remote host path can run powershell scripts (has only been tested on windows)  
 -Assumes posh-ssh module is installed (https://github.com/darkoperator/Posh-SSH)  
 -Assumes powershell execution mode set to unrestricted (required for posh-ssh)  
@@ -30,8 +30,36 @@ The "Start in (optional):" section can be populated with the full path to the di
 
 X:\path\to\udmproscriptdirectory
 
+Once the job has been configured, the files should consist of the historical backup files (.unf) along with a metadata json file:
+
+```
+PS X:\path\to\udmbackup\autobackup> Get-ChildItem | sort lastwritetime -Descending
+
+
+    Directory: X:\path\to\udmbackup\autobackup
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----         5/10/2022   3:00 AM          38976 autobackup_7.1.61_20220510_0800_1652169600023.unf
+-a----         5/10/2022   3:00 AM           1163 autobackup_meta.json
+-a----          5/9/2022   3:00 AM          39840 autobackup_7.1.61_20220509_0800_1652083200031.unf
+-a----          5/8/2022   3:00 AM          38816 autobackup_7.1.61_20220508_0800_1651996800020.unf
+-a----          5/7/2022   3:00 AM          37680 autobackup_7.1.61_20220507_0800_1651910400017.unf
+-a----          5/6/2022   3:00 AM          38832 autobackup_7.1.61_20220506_0800_1651824000059.unf
+-a----          5/5/2022   3:00 AM          36512 autobackup_7.1.61_20220505_0800_1651737600043.unf
+-a----          5/4/2022   3:00 AM          37040 autobackup_7.1.61_20220504_0800_1651651200029.unf
+-a----          5/3/2022   3:00 AM          35760 autobackup_7.1.61_20220503_0800_1651564800053.unf
+-a----         4/22/2022   3:00 AM          37264 autobackup_7.0.23_20220422_0800_1650614400026.unf
+-a----         4/21/2022   3:00 AM          37328 autobackup_7.0.23_20220421_0800_1650528000021.unf
+-a----         4/20/2022   3:00 AM          37168 autobackup_7.0.23_20220420_0800_1650441600017.unf
+
+
+PS X:\path\to\udmbackup\autobackup>
+```
+
 # config file
-The config file is a json-formatted config file.  There are 2 required fields and several optional fields to control things like logging, sending error reports via email, and local backup/log retention.
+The config file is a json-formatted config file.  There are 2 required fields and several optional fields to control things like logging, sending error reports via email, and local backup/log retention.  All file paths will need to have 2 backslashes to conform to json standards:
 
 The simplest file will be this:
 ```json
@@ -42,7 +70,7 @@ The simplest file will be this:
     }
 }
 ```
-**udmPasswordFile**: This is the path to the secure password file for the root-level account to the udm device  
+**udmPasswordFile**: This is the path to the secure password file for the root-level account to the udm device.  A direcgtory called "autobackup" will be created in this directory and hold all accumulated udm backup files.  
 **localBackupDirectory**: This is the path where the backups will be retained.  Note that without a retention configured as an optional parameter, the number of backup files will continue to grow unrestricted.
 
 The complete list of optional parameters is as follows:  
