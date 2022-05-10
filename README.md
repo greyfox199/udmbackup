@@ -67,8 +67,8 @@ The simplest file will be this:
     }
 }
 ```
-**udmPasswordFile**: This is the path to the secure password file for the root-level account to the udm device.  A directory called "autobackup" will be created in this directory and hold all accumulated udm backup files.  
-**localBackupDirectory**: This is the path where the backups will be retained.  Note that without a retention configured as an optional parameter, the number of backup files will continue to grow unrestricted.
+**udmPasswordFile**: This is the path to the secure password file for the root-level account to the udm device.  
+**localBackupDirectory**: This is the path where the backups will be retained.  A directory called "autobackup" will be created in this directory and hold all accumulated udm backup files.  Note that without a retention configured as an optional parameter, the number of backup files will continue to grow unrestricted.
 
 The complete list of optional parameters is as follows:  
 
