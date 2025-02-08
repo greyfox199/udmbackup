@@ -106,9 +106,9 @@ if (Test-Path -Path $PowerShellObject.Optional.logsDirectory -PathType Container
 if ($PowerShellObject.Optional.daysToKeepUDMBackups) {
   try {
     $intDaysToKeepUDMBackups = $PowerShellObject.Optional.daysToKeepUDMBackups
-    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Info: Using $($PowerShellObject.Optional.daysToKeepUDMBackups) value specified in config file for backup retention" -LogType "Info"
+    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "Using $($PowerShellObject.Optional.daysToKeepUDMBackups) value specified in config file for backup retention" -LogType "Info"
   } catch {
-    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Warning: $($PowerShellObject.Optional.daysToKeepUDMBackups) value specified in config file is not valid, defaulting to unlimited backup retention" -LogType "Warning"
+    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$($PowerShellObject.Optional.daysToKeepUDMBackups) value specified in config file is not valid, defaulting to unlimited backup retention" -LogType "Warning"
   }
 }
 
@@ -116,9 +116,9 @@ if ($PowerShellObject.Optional.daysToKeepUDMBackups) {
 if ($PowerShellObject.Optional.daysToKeepLogFiles) {
   try {
     $intDaysToKeepLogFiles = $PowerShellObject.Optional.daysToKeepLogFiles
-    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Info: Using $($PowerShellObject.Optional.daysToKeepLogFiles) value specified in config file for log retention" -LogType "Info"
+    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "Using $($PowerShellObject.Optional.daysToKeepLogFiles) value specified in config file for log retention" -LogType "Info"
   } catch {
-    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Warning: $($PowerShellObject.Optional.daysToKeepLogFiles) value specified in config file is not valid, defaulting to unlimited log retention" -LogType "Warning"
+    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$($PowerShellObject.Optional.daysToKeepLogFiles) value specified in config file is not valid, defaulting to unlimited log retention" -LogType "Warning"
   }
 }
 
@@ -143,29 +143,29 @@ if ($PowerShellObject.Optional.udmRemoteBackupDirectory) {
   $strUDMRemoteBackupDirectory = "/data/unifi/data/backup/autobackup"
 }
 
-Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Info: Beginning process to backup UDM Pro via scp at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory)" -LogType "Info"
+Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "Beginning process to backup UDM Pro via scp at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory)" -LogType "Info"
 
 #perform actual backup of udm device
 try {
-  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Info: Building credential" -LogType "Info"
+  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "Building credential" -LogType "Info"
   $objPassword = Get-Content $PowerShellObject.Required.udmPasswordFile | ConvertTo-SecureString
 	$objCredential = New-Object System.Management.Automation.PSCredential ($strUDMUsername, $objPassword)
-  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Info: Backing up UDM Pro..." -LogType "Info"
+  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "Backing up UDM Pro..." -LogType "Info"
 	Get-SCPItem -AcceptKey -ComputerName $strUDMIPHostname -Credential $objCredential -Path $strUDMRemoteBackupDirectory -PathType Directory -Destination $PowerShellObject.Required.localBackupDirectory -ErrorAction Stop
-  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Info: Successfully backed up UDM Pro" -LogType "Info"
+  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "Successfully backed up UDM Pro" -LogType "Info"
   $blnBackupSuccessful = $true
 } catch {
 	$ErrorMessage = $_.Exception.Message
 	$line = $_.InvocationInfo.ScriptLineNumber
 	$arrStrErrors += "Failed to connect to UDM Pro at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory) at $($line) with the following error: $ErrorMessage"
-  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "$(get-date) Error: Failed to connect to UDM Pro at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory) at $($line) with the following error: $ErrorMessage" -LogType "Error"
+  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $true -LogString "Failed to connect to UDM Pro at $($strUDMIPHostname) with $($strUDMUsername), copying $($strUDMRemoteBackupDirectory) to $($PowerShellObject.Required.localBackupDirectory) at $($line) with the following error: $ErrorMessage" -LogType "Error"
 }
 
 
 #backup retention
 if ($blnBackupSuccessful -eq $true -and $intDaysToKeepUDMBackups -gt 0) {
   try {
-    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "$(get-date) Info: Purging backups older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup" -LogType "Info"
+    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "Purging backups older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup" -LogType "Info"
     $CurrentDate = Get-Date
     $DatetoDelete = $CurrentDate.AddDays("-$($intDaysToKeepUDMBackups)")
     Get-ChildItem "$($PowerShellObject.Required.localBackupDirectory)\autobackup" | Where-Object { $_.LastWriteTime -lt $DatetoDelete } | Remove-Item -force
@@ -173,13 +173,13 @@ if ($blnBackupSuccessful -eq $true -and $intDaysToKeepUDMBackups -gt 0) {
     $ErrorMessage = $_.Exception.Message
 	  $line = $_.InvocationInfo.ScriptLineNumber
 	  $arrStrErrors += "Failed to purge backup files older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup with the following error: $ErrorMessage"
-    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "$(get-date) Error: Failed to purge backup files older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup with the following error: $ErrorMessage" -LogType "Error"
+    Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "Failed to purge backup files older than $($intDaysToKeepUDMBackups) days from $($PowerShellObject.Required.localBackupDirectory)\autobackup with the following error: $ErrorMessage" -LogType "Error"
   }
 }
 #log retention
 if ($intDaysToKeepLogFiles -gt 0) {
   try {
-      Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "$(get-date) Info: Purging log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Optional.logsDirectory)" -LogType "Info"
+      Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "Purging log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Optional.logsDirectory)" -LogType "Info"
       $CurrentDate = Get-Date
       $DatetoDelete = $CurrentDate.AddDays("-$($intDaysToKeepLogFiles)")
       Get-ChildItem "$($PowerShellObject.Optional.logsDirectory)" | Where-Object { $_.LastWriteTime -lt $DatetoDelete } | Remove-Item -Force
@@ -187,14 +187,14 @@ if ($intDaysToKeepLogFiles -gt 0) {
       $ErrorMessage = $_.Exception.Message
       $line = $_.InvocationInfo.ScriptLineNumber
       $arrStrErrors += "Failed to purge log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Optional.logsDirectory) with the following error: $ErrorMessage"
-      Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "$(get-date) Error: Failed to purge log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Optional.logsDirectory) with the following error: $ErrorMessage" -LogType "Error"
+      Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "Failed to purge log files older than $($intDaysToKeepLogFiles) days from $($PowerShellObject.Optional.logsDirectory) with the following error: $ErrorMessage" -LogType "Error"
   }
 }
 
 [int] $intErrorCount = $arrStrErrors.Count
 
 if ($intErrorCount -gt 0) {
-  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "$(get-date) Info: Encountered $intErrorCount errors, sending error report email" -LogType "Error"
+  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "Encountered $intErrorCount errors, sending error report email" -LogType "Error"
   #loop through all errors and add them to email body
   foreach ($strErrorElement in $arrStrErrors) {
       $intErrorCounter = $intErrorCounter + 1
@@ -202,7 +202,7 @@ if ($intErrorCount -gt 0) {
   }
   $strEmailBody = $strEmailBody + "<br>Please see $strDetailLogFilePath on $strServerName for more details"
 
-  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "$(get-date) Info: Sending email error report via $($errorMailAppID) app on $($errorMailTenantID) tenant from $($errorMailSender) to $($errorMailRecipients) as specified in config file" -LogType "Info"
+  Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "Sending email error report via $($errorMailAppID) app on $($errorMailTenantID) tenant from $($errorMailSender) to $($errorMailRecipients) as specified in config file" -LogType "Info"
   $errorEmailPasswordSecure = Get-Content $errorMailPasswordFile | ConvertTo-SecureString
   $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($errorEmailPasswordSecure)
   $errorEmailPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
@@ -211,6 +211,6 @@ if ($intErrorCount -gt 0) {
   Send-GVMailMessage -sender $errorMailSender -TenantID $errorMailTenantID -AppID $errorMailAppID -subject "$($errorMailSubjectPrefix): Encountered $($intErrorCount) errors during process" -body $strEmailBody -ContentType "HTML" -Recipient $errorMailRecipients -ClientSecret $errorEmailPassword
 }
 
-Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "$(get-date) Info: Process Complete" -LogType "Info"
+Out-GVLogFile -LogFileObject $objDetailLogFile -WriteToLog $blnWriteToLog -LogString "Process Complete" -LogType "Info"
 
 $objDetailLogFile.close()
